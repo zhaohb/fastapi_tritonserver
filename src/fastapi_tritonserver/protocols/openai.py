@@ -81,7 +81,7 @@ class CompletionRequest(BaseModel):
     model: Optional[str] = "default"
     prompt: Union[str, List[str]]
     suffix: Optional[str] = None
-    max_tokens: Optional[int] = 16
+    max_tokens: Optional[int] = 512
     temperature: Optional[float] = None
     top_p: Optional[float] = None
     n: Optional[int] = 1
@@ -139,11 +139,10 @@ class CompletionStreamResponse(BaseModel):
     choices: List[CompletionResponseStreamChoice]
 
 
-
 class ChatCompletionResponseChoice(BaseModel):
     index: int
     message: ChatMessage
-    finish_reason: Optional[Literal["stop", "length"]] = None
+    finish_reason: Optional[Literal["stop", "length", "function_call"]] = None
 
 
 class ChatCompletionResponse(BaseModel):

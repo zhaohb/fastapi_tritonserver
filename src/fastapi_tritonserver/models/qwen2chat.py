@@ -1,7 +1,7 @@
 from .base_model import BaseModel
 from fastapi_tritonserver.logger import _root_logger
-
 logger = _root_logger
+
 
 DEFAULT_PROMPT_TEMPLATES = {
     'InternLMForCausalLM':
@@ -37,17 +37,23 @@ class Qwen2ChatModel(BaseModel):
             messages.append(
                 {"role": "assistant", "content": old_response}
             )
-        messages.append({"role": "user", "content": query})
-        text = tokenizer.apply_chat_template(
+        if isinstance(query, str):
+            messages.append({"role": "user", "content": query})
+        prompt = tokenizer.apply_chat_template(
             messages,
             tokenize=False,
             add_generation_prompt=True
         )
+        # used in function call
+        if not isinstance(query, str):
+            im_end = "<|im_end|>"
+            # right trip
+            prompt = prompt[: -len("<|im_start|>assistant") - 1]
+            prompt = prompt.rstrip()
+            prompt = prompt[: -len(im_end)]
+            # stop_words.append(im_end)
         encoded_outputs = tokenizer(
-            text,
-            # add_special_tokens=True,
-            # truncation=True,
-            # max_length=1024
+            prompt,
         )
         return encoded_outputs
 

@@ -4,7 +4,6 @@ import time
 import re
 import logging
 import os
-import numpy as np
 import json
 import copy
 from threading import Thread
@@ -70,6 +69,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(router)
+
 
 def trim_stop_words(response, stop_words):
     if stop_words:
@@ -322,26 +322,20 @@ async def create_chat_completion(raw_request: ChatCompletionRequest):
 
     print("query: ", query)
     print("history: ", history)
+    if request.stream and request.functions:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid request: Function calling is not yet implemented for stream mode.",
+        )
 
     model_name = request.model
     request_id = f"{random_uuid()}"
     created_time = int(time.time())
-    params = SamplingParams(
-        max_output_len=request.max_tokens,
-        temperature=request.temperature,
-        top_p=request.top_p,
-        top_k=request.top_k,
-        beam_width=request.n,
-        presence_penalty=request.presence_penalty,
-        frequency_penalty=request.frequency_penalty,
-        stop_words=stop_words,
-    )
 
     if request.messages[-1].role not in ["user", "function"]:
         print(454)
         raise HTTPException(status_code=400, detail="Invalid request")
     # query = request.messages[-1].content
-
     prev_messages = request.messages[:-1]
     if len(prev_messages) > 0 and prev_messages[0].role == "system":
         system = prev_messages.pop(0).content
@@ -353,7 +347,16 @@ async def create_chat_completion(raw_request: ChatCompletionRequest):
         if "Observation:" not in stop_words:
             stop_words.append("Observation:")
 
-    # stop_words_ids = [tokenizer.encode(s) for s in stop_words] if stop_words else None
+    params = SamplingParams(
+        max_output_len=request.max_tokens,
+        temperature=request.temperature,
+        top_p=request.top_p,
+        top_k=request.top_k,
+        beam_width=request.n,
+        presence_penalty=request.presence_penalty,
+        frequency_penalty=request.frequency_penalty,
+        stop_words=stop_words,
+    )
 
     def create_stream_response_json(
             index: int,
@@ -423,10 +426,9 @@ async def create_chat_completion(raw_request: ChatCompletionRequest):
         # background_tasks.add_task(abort_request)
         return StreamingResponse(completion_stream_generator(),
                                  media_type="text/event-stream")
-
     try:
         logger.info('[%s] req request: [%s] generate_params: [%s]', request_id, request_dict, params.to_json())
-        text = await app_ctx["asyncEngine"].generate(
+        response = await app_ctx["asyncEngine"].generate(
             query=query,
             system_prompt=system,
             history_list=history,
@@ -437,9 +439,13 @@ async def create_chat_completion(raw_request: ChatCompletionRequest):
     except Exception as e:
         logger.error('[%s] process fail msg: [%s]', request_id, str(e))
         raise e
-    logger.info('[%s] resp elapsed: [%.4fs] result: [%s]', request_id, time.time() - begin, text)
-    ret = {"text": text, "id": request_id}
-    response = trim_stop_words(text, stop_words)
+    logger.info(
+        '[%s] resp elapsed: [%.4fs] result: [%s]',
+        request_id,
+        time.time() - begin,
+        response
+    )
+    response = trim_stop_words(response, stop_words)
     if request.functions:
         choice_data = parse_response(response)
     else:
