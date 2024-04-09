@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+tritonclient[all]
+SentencePiece
+numpy
+transformers
