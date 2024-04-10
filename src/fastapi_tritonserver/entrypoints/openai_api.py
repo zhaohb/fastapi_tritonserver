@@ -540,5 +540,6 @@ if __name__ == "__main__":
                 port=args.port,
                 workers=args.workers,
                 use_colors=False,
+                reload=True,
                 timeout_keep_alive=TIMEOUT_KEEP_ALIVE)
     health_task.join()

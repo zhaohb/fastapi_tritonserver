@@ -22,13 +22,16 @@ pip install fastapi_tritonserver-0.0.1-py3-none-any.whl
 ## Api server  启动示例(普通的接口调用)
 ### 确保tritonserver已经启动，并切暴露在127.0.0.1:8001
 - 假设你部署的qwen1.5-1.8b-chat模型，那么可以将tokenizer的本机离线路径或者在huggingface的在线路径提供给`--tokenizer-path`参考。
+- workers可以根据你的tritonserver最大支持的batch_size来设置。
 - 下面是一个简单示例
 ```shell
 python3 -m fastapi_tritonserver.entrypoints.api_server  \
-      --port 9900 --host 0.0.0.0 \
+      --port 9900 \
+      --host 0.0.0.0 \
       --model-name tensorrt_llm  \
       --tokenizer-path Qwen/Qwen1.5-1.8B-Chat \
       --server-url 127.0.0.1:8001  \
+      --workers 4 \
       --model_type qwen2-chat
 ```
 
@@ -57,13 +60,15 @@ output:
 ```
 
 ## Openai API 示例(符合openai api规范的调用)
-### 确保tritonserver已经启动，并切暴露在127.0.0.1:8001
+### 确保tritonserver已经启动，并切暴露在127.0.0.1:8001, workers可以根据你的tritonserver最大支持的batch_size来设置。
 ```shell
 python3 -m fastapi_tritonserver.entrypoints.openai_api  \
-      --port 9900 --host 0.0.0.0 \
+      --port 9900 \
+      --host 0.0.0.0 \
       --model-name tensorrt_llm  \
       --tokenizer-path Qwen/Qwen1.5-1.8B-Chat \
       --server-url 127.0.0.1:8001  \
+      --workers 4 \
       --model_type qwen2-chat
 ```
 
@@ -97,7 +102,7 @@ output:
 python3 -m fastapi_tritonserver.entrypoints.api_server --port 9000 --host 0.0.0.0 --model-name qwen-vl-test --tokenizer-path qwenvl_repo/qwen-vl-test/qwen-vl-test-llm/20240220104327/tokenizer/ --server-url localhost:6601 --workers 1 --model_type qwen-vl
 
 # triton server启动
-CUDA_VISIBLE_DEVICES=7 tritonserver --model-repository=qwenvl_repo/repo/ --strict-model-config=false --log-verbose=0 --metrics-port=6000 --http-port=6609 --grpc-port=6601
+tritonserver --model-repository=qwenvl_repo/repo/ --strict-model-config=false --log-verbose=0 --metrics-port=6000 --http-port=6609 --grpc-port=6601
 
 # 请求示例
 curl -X POST  localhost:9000/generate -d '{"images": ["https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-VL/assets/demo.jpeg"], "prompt": "what it is"}'
@@ -116,6 +121,7 @@ docker run -d --restart=always \
   -e TRITON_SERVER_HOST="192.168.x.x" \
   -e TRITON_SERVER_PORT="8001" \
   -e MODEL_TYPE="qwen2-chat" \
+  -e WORKERS=4 \
   --name fastapi_tritonserver \
   -p 9900:9900 \
   fastapi_tritonserver
