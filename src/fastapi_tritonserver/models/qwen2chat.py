@@ -44,6 +44,7 @@ class Qwen2ChatModel(BaseModel):
             tokenize=False,
             add_generation_prompt=True
         )
+        # print("prompt: ", prompt)
         # used in function call
         if not isinstance(query, str):
             im_end = "<|im_end|>"

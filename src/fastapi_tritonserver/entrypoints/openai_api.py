@@ -126,12 +126,10 @@ def parse_messages(messages, functions):
         )
 
     messages = copy.deepcopy(messages)
-    default_system = "You are a helpful assistant."
-    system = ""
     if messages[0].role == "system":
         system = messages.pop(0).content.lstrip("\n").rstrip()
-        if system == default_system:
-            system = ""
+    else:
+        system = "You are a helpful assistant."
 
     if functions:
         tools_text = []
@@ -155,11 +153,12 @@ def parse_messages(messages, functions):
             tools_name_text.append(name_m)
         tools_text = "\n\n".join(tools_text)
         tools_name_text = ", ".join(tools_name_text)
-        system += "\n\n" + REACT_INSTRUCTION.format(
+        instruction = (REACT_INSTRUCTION.format(
             tools_text=tools_text,
             tools_name_text=tools_name_text,
-        )
-        system = system.lstrip("\n").rstrip()
+        ).lstrip('\n').rstrip())
+    else:
+        instruction = ''
 
     dummy_thought = {
         "en": "\nThought: I now know the final answer.\nFinal answer: ",
@@ -229,34 +228,27 @@ def parse_messages(messages, functions):
         if messages[i].role == "user" and messages[i + 1].role == "assistant":
             usr_msg = messages[i].content.lstrip("\n").rstrip()
             bot_msg = messages[i + 1].content.lstrip("\n").rstrip()
-            if system and (i == len(messages) - 2):
-                usr_msg = f"{system}\n\nQuestion: {usr_msg}"
-                system = ""
+            if instruction and (i == len(messages) - 2):
+                usr_msg = f"{instruction}\n\nQuestion: {usr_msg}"
+                instruction = ""
             for t in dummy_thought.values():
                 t = t.lstrip("\n")
                 if bot_msg.startswith(t) and ("\nAction: " in bot_msg):
-                    bot_msg = bot_msg[len(t) :]
+                    bot_msg = bot_msg[len(t):]
             history.append([usr_msg, bot_msg])
         else:
             raise HTTPException(
                 status_code=400,
                 detail="Invalid request: Expecting exactly one user (or function) role before every assistant role.",
             )
-    if system:
+    if instruction:
         assert query is not _TEXT_COMPLETION_CMD
-        query = f"{system}\n\nQuestion: {query}"
-    return query, history
+        query = f"{instruction}\n\nQuestion: {query}"
+    return query, history, system
 
 
 async def get_gen_prompt(request):
-    prev_messages = request.messages[:-1]
-    if len(prev_messages) > 0 and prev_messages[0].role == "system":
-        system = prev_messages.pop(0).content
-    else:
-        system = "You are a helpful assistant."
-
-    query, history = parse_messages(request.messages, request.functions)
-
+    query, history, system = parse_messages(request.messages, request.functions)
     return query, history, system
 
 
@@ -303,7 +295,7 @@ async def create_chat_completion(raw_request: ChatCompletionRequest):
     request = ChatCompletionRequest(**request_json)
 
     begin = time.time()
-    logger.info(f"Received chat completion request: {request}")
+    # logger.info(f"Received chat completion request: {request}")
 
     stop_words = []
     if request.stop is not None and len(request.stop) > 0:
@@ -311,17 +303,10 @@ async def create_chat_completion(raw_request: ChatCompletionRequest):
             stop_words.append(request.stop)
         else:
             stop_words.append(','.join(request.stop))
-    
-    prev_messages = request.messages[:-1]
-    if len(prev_messages) > 0 and prev_messages[0].role == "system":
-        system = prev_messages.pop(0).content
-    else:
-        system = "You are a helpful assistant."
+    query, history, system = parse_messages(request.messages, request.functions)
 
-    query, history = parse_messages(request.messages, request.functions)
-
-    print("query: ", query)
-    print("history: ", history)
+    # print("query: ", query)
+    # print("history: ", history)
     if request.stream and request.functions:
         raise HTTPException(
             status_code=400,
@@ -417,7 +402,7 @@ async def create_chat_completion(raw_request: ChatCompletionRequest):
             yield f"data: {data}\n\n"
 
         yield "data: [DONE]\n\n"
-        logger.info('[%s] resp elapsed: [%.4fs] result: [%s]', request_id, time.time() - begin, texts)
+        # logger.info('[%s] resp elapsed: [%.4fs] result: [%s]', request_id, time.time() - begin, texts)
 
     # Streaming response
     if request.stream:
@@ -427,7 +412,7 @@ async def create_chat_completion(raw_request: ChatCompletionRequest):
         return StreamingResponse(completion_stream_generator(),
                                  media_type="text/event-stream")
     try:
-        logger.info('[%s] req request: [%s] generate_params: [%s]', request_id, request_dict, params.to_json())
+        # logger.info('[%s] req request: [%s] generate_params: [%s]', request_id, request_dict, params.to_json())
         response = await app_ctx["asyncEngine"].generate(
             query=query,
             system_prompt=system,
@@ -439,12 +424,12 @@ async def create_chat_completion(raw_request: ChatCompletionRequest):
     except Exception as e:
         logger.error('[%s] process fail msg: [%s]', request_id, str(e))
         raise e
-    logger.info(
-        '[%s] resp elapsed: [%.4fs] result: [%s]',
-        request_id,
-        time.time() - begin,
-        response
-    )
+    # logger.info(
+    #     '[%s] resp elapsed: [%.4fs] result: [%s]',
+    #     request_id,
+    #     time.time() - begin,
+    #     response
+    # )
     response = trim_stop_words(response, stop_words)
     if request.functions:
         choice_data = parse_response(response)
