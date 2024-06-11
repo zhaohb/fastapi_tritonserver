@@ -15,5 +15,6 @@ def parse_cfg(path: str):
         "top_p": cfg.top_p,
         "temperature": cfg.temperature,
         "len_penalty": 1,
-        "repetition_penalty": cfg.repetition_penalty
+        "repetition_penalty": cfg.repetition_penalty,
+        "stop": ["<|endoftext|>,<|im_start|>"]
     }

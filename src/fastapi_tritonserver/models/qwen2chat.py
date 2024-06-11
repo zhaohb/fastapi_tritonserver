@@ -58,7 +58,5 @@ class Qwen2ChatModel(BaseModel):
         )
         return encoded_outputs
 
-
     def decode(self, tokenizer, output_ids, input_lengths, cutoff_len=0):
-
-        return tokenizer.decode(output_ids[0][0])
+        return tokenizer.decode(output_ids[0][0],  skip_special_tokens=True)

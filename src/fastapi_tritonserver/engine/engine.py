@@ -32,6 +32,11 @@ class BaseEngine(ABC):
             params.len_penalty = self._default_params["len_penalty"]
         if params.repetition_penalty is None and "repetition_penalty" in self._default_params:
             params.repetition_penalty = self._default_params["repetition_penalty"]
+        if (
+                params.stop_words is None
+                or (isinstance(params.stop_words, list) and len(params.stop_words) == 0)
+        ) and "stop" in self._default_params:
+            params.stop_words = self._default_params["stop"]
         return params
 
 
