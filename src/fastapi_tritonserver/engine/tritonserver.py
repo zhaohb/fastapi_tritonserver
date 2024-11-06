@@ -117,6 +117,7 @@ def create_inputs(
         prepare_tensor("input_lengths", input_lens),
         prepare_tensor("request_output_len", output0_len),
         prepare_tensor("streaming", streaming_data),
+        prepare_tensor("exclude_input_in_output", np.array([[True]], dtype=bool))
     ]
 
     if np.size(visual_output) != 0 and model_type.endswith('-vl'):
